@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "usefulfletching",
+  "version": "${version}",
+  "name": "Useful Fletching",
+  "description": "A Minecraft mod that gives fletching tables an actual use",
+  "authors": ["GuyWithaPC"],
+  "contact": {
+    "repo": "https://github.com/GuyWithaPC/UsefulFletching"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/UsefulFletching/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "io.guywithapc.usefulfletching.UsefulFletchingClient"
+    ],
+    "main": [
+      "io.guywithapc.usefulfletching.UsefulFletching"
+    ]
+  },
+  "mixins": [
+    "UsefulFletching.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.19",
+    "fabric": "*",
+    "minecraft": "1.19.4"
+  }
+}

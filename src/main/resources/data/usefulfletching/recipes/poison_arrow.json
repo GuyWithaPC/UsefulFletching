@@ -1,0 +1,19 @@
+{
+  "type": "usefulfletching:fletching",
+  "ingredients": [
+    {
+      "item": "minecraft:arrow"
+    },
+    {
+      "item": "minecraft:spider_eye"
+    }
+  ],
+  "output": {
+    "result": {
+      "item": "minecraft:tipped_arrow"
+    },
+    "nbt": {
+      "Potion": "minecraft:poison"
+    }
+  }
+}

@@ -13,10 +13,10 @@
   "environment": "*",
   "entrypoints": {
     "client": [
-      "io.guywithapc.usefulfletching.UsefulFletchingClient"
+      "io.github.guywithapc.usefulfletching.UsefulFletchingClient"
     ],
     "main": [
-      "io.guywithapc.usefulfletching.UsefulFletching"
+      "io.github.guywithapc.usefulfletching.UsefulFletching"
     ]
   },
   "mixins": [

@@ -2,22 +2,22 @@
   "type": "usefulfletching:fletching",
   "ingredients": {
     "pattern": [
-      "A","A","A","E"
+      "A",
+      "A",
+      "A",
+      "G"
     ],
     "key": {
       "A": {
         "item": "minecraft:arrow"
       },
-      "E": {
-        "item": "minecraft:spider_eye"
+      "G": {
+        "item": "minecraft:glowstone_dust"
       }
     }
   },
   "result": {
-    "item": "minecraft:tipped_arrow",
-    "count": 3,
-    "data": {
-      "Potion": "minecraft:poison"
-    }
+    "item": "spectral_arrow",
+    "count": 3
   }
 }

@@ -1,37 +1,34 @@
 package io.github.guywithapc.usefulfletching.handler;
 
 import io.github.guywithapc.usefulfletching.UsefulFletching;
-import io.github.guywithapc.usefulfletching.UsefulFletchingClient;
-import io.github.guywithapc.usefulfletching.mixin.FletchingTableMixin;
 import io.github.guywithapc.usefulfletching.recipe.FletchingRecipe;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.CraftingInventory;
 import net.minecraft.inventory.CraftingResultInventory;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeMatcher;
-import net.minecraft.recipe.book.RecipeBookCategory;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.screen.AbstractRecipeScreenHandler;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.screen.slot.CraftingResultSlot;
 import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
-public class FletchingScreenHandler extends AbstractRecipeScreenHandler<CraftingInventory> {
-    private final CraftingInventory input;
-    private final CraftingResultInventory result;
+public class FletchingScreenHandler extends ScreenHandler {
+    private final Inventory input;
+    private final CraftingResultInventory output = new CraftingResultInventory();
     private final ScreenHandlerContext context;
     private final PlayerEntity player;
-    private final List<FletchingRecipe> recipes;
+    private final World world;
+    private final FletchingSlotsManager fletchingSlotsManager;
+    private final List<Integer> inputSlotIndices;
+    private final int outputSlotIndex;
 
     @Nullable
     private FletchingRecipe currentRecipe;
@@ -42,109 +39,147 @@ public class FletchingScreenHandler extends AbstractRecipeScreenHandler<Crafting
 
     public FletchingScreenHandler(int syncId, PlayerInventory playerInventory, ScreenHandlerContext context) {
         super(UsefulFletching.FLETCHING_SCREEN_TYPE, syncId);
-        this.input = new CraftingInventory(this,2,1);
-        this.result = new CraftingResultInventory();
         this.context = context;
         this.player = playerInventory.player;
+        this.world = player.world;
 
-        // ingredient and result slots
-        this.addSlot(new Slot(this.input, 0, 27, 47));
-        this.addSlot(new Slot(this.input, 1, 76, 47));
-        this.addSlot(new CraftingResultSlot(player, this.input, this.result, 2, 134, 47));
+        // set up inventory
+        this.fletchingSlotsManager = this.getFletchingSlotsManager();
+        this.input = createInputInventory(fletchingSlotsManager.getInputSlotCount());
+        this.createInputSlots(fletchingSlotsManager);
+        this.inputSlotIndices = fletchingSlotsManager.getInputSlotIndices();
+        this.createOutputSlot(fletchingSlotsManager);
+        this.outputSlotIndex = fletchingSlotsManager.getOutputSlotIndex();
+        this.addPlayerInventorySlots(player.getInventory());
+    }
 
+    private FletchingSlotsManager getFletchingSlotsManager() {
+        // main row is at Y = 39
+        // input 1 is at (51, 11) (arrows top)
+        // input 2 is at (27, 35) (arrows middle)
+        // input 3 is at (51, 60) (arrows bottom)
+        // input 4 is at (76, 35) (ingredient)
+        // output is at (134, 35)
+        return FletchingSlotsManager.create()
+                .input(0, 51, 11, (stack) -> {
+                    return true;
+                })
+                .input(1, 27, 35, (stack) -> {
+                    return true;
+                })
+                .input(2, 51, 60, (stack) -> {
+                    return true;
+                })
+                .input(3, 76, 35, (stack) -> {
+                    return true;
+                })
+                .output(4, 134, 35)
+                .build();
+    }
+
+    private SimpleInventory createInputInventory(int size) {
+        return new SimpleInventory(size) {
+            public void markDirty() {
+                super.markDirty();
+                FletchingScreenHandler.this.onContentChanged(this);
+            }
+        };
+    }
+
+    private void createInputSlots(FletchingSlotsManager manager) {
+        for (FletchingSlotsManager.FletchingSlot slot : manager.getInputSlots()) {
+            this.addSlot(new Slot(this.input, slot.slotId(), slot.x(), slot.y()) {
+                public boolean canInsert(ItemStack stack) {
+                    return slot.mayPlace().test(stack);
+                }
+            });
+        }
+    }
+
+    private void createOutputSlot(FletchingSlotsManager manager) {
+        this.addSlot(new Slot(this.output, manager.getOutputSlot().slotId(), manager.getOutputSlot().x(), manager.getOutputSlot().y()) {
+            public boolean canInsert(ItemStack stack) {
+                return false;
+            }
+
+            public boolean canTakeItems(PlayerEntity player) {
+                return FletchingScreenHandler.this.canTakeOutput(player);
+            }
+
+            public void onTakeItem(PlayerEntity player, ItemStack stack) {
+                FletchingScreenHandler.this.onTakeOutput(player, stack);
+            }
+        });
+    }
+
+    private void addPlayerInventorySlots(PlayerInventory playerInventory) {
         int i;
-        int j;
-
-        // inventory slots
         for(i = 0; i < 3; ++i) {
-            for(j = 0; j < 9; ++j) {
+            for(int j = 0; j < 9; ++j) {
                 this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
             }
         }
 
-        // hotbar slots
         for(i = 0; i < 9; ++i) {
             this.addSlot(new Slot(playerInventory, i, 8 + i * 18, 142));
         }
 
-        // set up recipes
-        this.recipes = this.player.world.getRecipeManager().listAllOfType(UsefulFletching.FLETCHING_RECIPE_TYPE);
-    }
-
-    @Override
-    public void populateRecipeFinder(RecipeMatcher finder) {
-        this.input.provideRecipeInputs(finder);
-    }
-
-    @Override
-    public void clearCraftingSlots() {
-        this.input.clear();
-        this.result.clear();
-    }
-
-    public void clearInputSlots() {
-        this.input.clear();
-    }
-
-    @Override
-    public boolean matches(Recipe<? super CraftingInventory> recipe) {
-        return recipe.matches(input,player.world);
-    }
-
-    @Override
-    public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
-        if (slotIndex == getCraftingResultSlotIndex()) {
-            if (actionType == SlotActionType.PICKUP
-                    || actionType == SlotActionType.THROW
-            ) {
-                System.out.println("pickup action");
-                decrementStack(0);
-                decrementStack(1);
-            }
-            if (actionType == SlotActionType.PICKUP_ALL
-                    || actionType == SlotActionType.QUICK_CRAFT
-                    || actionType == SlotActionType.QUICK_MOVE
-            ) {
-                System.out.println("pickup all action");
-                clearInputSlots();
-            }
-        }
-        super.onSlotClick(slotIndex,button,actionType,player);
-    }
-
-    private void decrementStack(int slot) {
-        ItemStack itemStack = this.input.getStack(slot);
-        itemStack.decrement(1);
-        this.input.setStack(slot, itemStack);
     }
 
     public void updateResult() {
-        if (!player.world.isClient) {
-            ServerPlayerEntity serverPlayerEntity = (ServerPlayerEntity)player;
-            ItemStack itemStack = ItemStack.EMPTY;
-            Optional<FletchingRecipe> optional = this.player.world
-                    .getRecipeManager()
-                    .getFirstMatch(UsefulFletching.FLETCHING_RECIPE_TYPE, this.input, this.player.world);
-            if (optional.isPresent()) {
-                currentRecipe = optional.get();
-                if (result.shouldCraftRecipe(serverPlayerEntity.world,serverPlayerEntity,currentRecipe)) {
-                    ItemStack itemStack2 = currentRecipe.craft(input, serverPlayerEntity.world.getRegistryManager());
-                    if (itemStack2.isItemEnabled(serverPlayerEntity.world.getEnabledFeatures())) {
-                        itemStack = itemStack2;
-                    }
-                }
-            }
-            result.setLastRecipe(currentRecipe);
-            result.setStack(2,itemStack);
-            serverPlayerEntity.networkHandler.sendPacket(new ScreenHandlerSlotUpdateS2CPacket(this.syncId, this.nextRevision(), 2, itemStack));
+        Optional<FletchingRecipe> optional = world.getRecipeManager().getFirstMatch(
+                UsefulFletching.FLETCHING_RECIPE_TYPE,
+                this.input,
+                this.world
+        );
+        if (optional.isEmpty()) {
+            this.output.setStack(0, ItemStack.EMPTY);
+        } else {
+            FletchingRecipe recipe = optional.get();
+            ItemStack result = recipe.craft(this.input, world.getRegistryManager());
+            this.currentRecipe = recipe;
+            this.output.setLastRecipe(recipe);
+            this.output.setStack(0,result);
         }
     }
 
-    @Override
+    public boolean canTakeOutput(PlayerEntity player) {
+        return this.currentRecipe != null && this.currentRecipe.matches(this.input, this.world);
+    }
+
+    public void onTakeOutput(PlayerEntity player, ItemStack stack) {
+        stack.onCraft(world, player, stack.getCount());
+        this.output.unlockLastRecipe(player);
+        this.decrementStack(0);
+        this.decrementStack(1);
+        this.decrementStack(2);
+        this.decrementStack(3);
+        if (!world.isClient) {
+            Random rng = new Random();
+            this.context.run((world, pos) -> {
+                world.playSound(
+                        null,
+                        pos,
+                        SoundEvents.ENTITY_VILLAGER_WORK_FLETCHER,
+                        SoundCategory.BLOCKS,
+                        1.0f,
+                        1.0f + rng.nextFloat(-0.1f,0.1f)
+                );
+            });
+        }
+    }
+
     public void onContentChanged(Inventory inventory) {
-        this.context.run((world,pos) -> {
-            updateResult();
-        });
+        super.onContentChanged(inventory);
+        if (inventory == this.input) {
+            this.updateResult();
+        }
+    }
+
+    private void decrementStack(int slot) {
+        ItemStack stack = this.input.getStack(slot);
+        stack.decrement(1);
+        this.input.setStack(slot, stack);
     }
 
     @Override
@@ -156,56 +191,34 @@ public class FletchingScreenHandler extends AbstractRecipeScreenHandler<Crafting
     }
 
     @Override
-    public int getCraftingResultSlotIndex() {
-        return 2;
-    }
-
-    @Override
-    public int getCraftingWidth() {
-        return this.input.getWidth();
-    }
-
-    @Override
-    public int getCraftingHeight() {
-        return this.input.getHeight();
-    }
-
-    @Override
-    public int getCraftingSlotCount() {
-        return 3;
-    }
-
-    @Override
-    public RecipeBookCategory getCategory() {
-        return null;
-    }
-
-    @Override
-    public boolean canInsertIntoSlot(int index) {
-        return index != this.getCraftingResultSlotIndex();
-    }
-
-    @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
         ItemStack itemStack = ItemStack.EMPTY;
-        Slot slot2 = (Slot)this.slots.get(slot);
+        Slot slot2 = this.slots.get(slot);
         if (slot2 != null && slot2.hasStack()) {
             ItemStack itemStack2 = slot2.getStack();
             itemStack = itemStack2.copy();
-            if (slot == 2) {
-                this.context.run((world, pos) -> {
-                    itemStack2.getItem().onCraft(itemStack2, world, player);
-                });
-                if (!this.insertItem(itemStack2, 3, 38, true)) {
+            int i = this.getPlayerInventoryStartIndex();
+            int j = this.getPlayerHotbarEndIndex();
+            if (slot == this.getOutputSlotIndex()) {
+                if (!this.insertItem(itemStack2, i, j, true)) {
                     return ItemStack.EMPTY;
                 }
 
                 slot2.onQuickTransfer(itemStack2, itemStack);
-            } else if (slot < 2) {
-                if (!this.insertItem(itemStack2, 3, 38, true)) {
+            } else if (this.inputSlotIndices.contains(slot)) {
+                if (!this.insertItem(itemStack2, i, j, false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(itemStack2, 0, 1, false)) {
+            } else if (this.isValidIngredient(itemStack2) && slot >= this.getPlayerInventoryStartIndex() && slot < this.getPlayerHotbarEndIndex()) {
+                int k = this.getSlotFor(itemStack);
+                if (!this.insertItem(itemStack2, k, this.getOutputSlotIndex(), false)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (slot >= this.getPlayerInventoryStartIndex() && slot < this.getPlayerInventoryEndIndex()) {
+                if (!this.insertItem(itemStack2, this.getPlayerHotbarStartIndex(), this.getPlayerHotbarEndIndex(), false)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (slot >= this.getPlayerHotbarStartIndex() && slot < this.getPlayerHotbarEndIndex() && !this.insertItem(itemStack2, this.getPlayerInventoryStartIndex(), this.getPlayerInventoryEndIndex(), false)) {
                 return ItemStack.EMPTY;
             }
 
@@ -220,12 +233,37 @@ public class FletchingScreenHandler extends AbstractRecipeScreenHandler<Crafting
             }
 
             slot2.onTakeItem(player, itemStack2);
-            if (slot == 2) {
-                player.dropItem(itemStack2, false);
-            }
         }
 
         return itemStack;
+    }
+
+    private boolean isValidIngredient(ItemStack item) {
+        return true;
+    }
+
+    private int getSlotFor(ItemStack item) {
+        return this.input.isEmpty() ? 0 : inputSlotIndices.get(0);
+    }
+
+    public int getOutputSlotIndex() {
+        return this.outputSlotIndex;
+    }
+
+    private int getPlayerInventoryStartIndex() {
+        return this.getOutputSlotIndex() + 1;
+    }
+
+    private int getPlayerInventoryEndIndex() {
+        return this.getPlayerInventoryStartIndex() + 27;
+    }
+
+    private int getPlayerHotbarStartIndex() {
+        return this.getPlayerInventoryEndIndex();
+    }
+
+    private int getPlayerHotbarEndIndex() {
+        return this.getPlayerHotbarStartIndex() + 9;
     }
 
     @Override

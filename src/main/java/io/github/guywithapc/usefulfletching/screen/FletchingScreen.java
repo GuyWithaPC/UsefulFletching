@@ -16,8 +16,8 @@ public class FletchingScreen extends HandledScreen<FletchingScreenHandler> {
 
     public FletchingScreen(FletchingScreenHandler handler, PlayerInventory inventory, Text title) {
         super(handler, inventory, title);
-        this.titleX = 50;
-        this.titleY = 15;
+        this.titleX = 76;
+        this.titleY = 11;
     }
 
     @Override
@@ -26,6 +26,12 @@ public class FletchingScreen extends HandledScreen<FletchingScreenHandler> {
         RenderSystem.bindTexture(0);
         drawTexture(matrices,this.x,this.y,0,0,this.backgroundWidth,this.backgroundHeight);
         this.drawInvalidRecipeArrow(matrices,this.x,this.y);
+    }
+
+    @Override
+    protected void drawForeground(MatrixStack matrices, int mouseX, int mouseY) {
+        this.textRenderer.draw(matrices, this.title, (float)this.titleX, (float)this.titleY, 4210752);
+        //this.textRenderer.draw(matrices, this.playerInventoryTitle, (float)this.playerInventoryTitleX, (float)this.playerInventoryTitleY, 4210752);
     }
 
     @Override
@@ -38,10 +44,12 @@ public class FletchingScreen extends HandledScreen<FletchingScreenHandler> {
     private void drawInvalidRecipeArrow(MatrixStack matrices, int x, int y) {
         FletchingScreenHandler fletchingHandler = (FletchingScreenHandler)this.handler;
         if ((fletchingHandler.getSlot(1).hasStack()
-                || fletchingHandler.getSlot(2).hasStack())
-                && !fletchingHandler.getSlot(fletchingHandler.getCraftingResultSlotIndex()).hasStack()
+                || fletchingHandler.getSlot(2).hasStack()
+                || fletchingHandler.getSlot(3).hasStack()
+                || fletchingHandler.getSlot(4).hasStack())
+                && !fletchingHandler.getSlot(fletchingHandler.getOutputSlotIndex()).hasStack()
         ) {
-            drawTexture(matrices, x+99, y+45, this.backgroundWidth, 0, 28, 21);
+            drawTexture(matrices, x+99, y+33, this.backgroundWidth, 0, 28, 21);
         }
     }
 }

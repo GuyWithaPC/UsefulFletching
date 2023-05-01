@@ -1,3 +1,5 @@
 {
-  "container.fletching": "Fletching Table"
+  "container.fletching": "Fletching Table",
+  "usefulfletching.flaming_arrow": "Blazing Arrow",
+  "usefulfletching.blindness_arrow": "Arrow of Blindness"
 }

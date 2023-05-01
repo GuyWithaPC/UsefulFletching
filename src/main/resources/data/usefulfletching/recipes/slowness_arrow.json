@@ -2,14 +2,14 @@
   "type": "usefulfletching:fletching",
   "ingredients": {
     "pattern": [
-      "A","A","A","E"
+      "A","A","A","S"
     ],
     "key": {
       "A": {
         "item": "minecraft:arrow"
       },
-      "E": {
-        "item": "minecraft:spider_eye"
+      "S": {
+        "item": "minecraft:snowball"
       }
     }
   },
@@ -17,7 +17,7 @@
     "item": "minecraft:tipped_arrow",
     "count": 3,
     "data": {
-      "Potion": "minecraft:poison"
+      "Potion": "minecraft:slowness"
     }
   }
 }

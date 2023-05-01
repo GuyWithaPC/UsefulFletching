@@ -1,11 +1,15 @@
 package io.github.guywithapc.usefulfletching.recipe;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.fabricmc.fabric.api.recipe.v1.ingredient.FabricIngredient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.inventory.CraftingInventory;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.StringNbtReader;
@@ -18,8 +22,9 @@ import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.world.World;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 
-public class FletchingRecipe implements Recipe<CraftingInventory> {
+public class FletchingRecipe implements Recipe<Inventory> {
 
     private final Identifier id;
     private final ItemStack output;
@@ -31,12 +36,15 @@ public class FletchingRecipe implements Recipe<CraftingInventory> {
     }
 
     @Override
-    public boolean matches(CraftingInventory inventory, World world) {
-        return items.get(0).test(inventory.getStack(0)) && items.get(1).test(inventory.getStack(1));
+    public boolean matches(Inventory inventory, World world) {
+        return items.get(0).test(inventory.getStack(0))
+                && items.get(1).test(inventory.getStack(1))
+                && items.get(2).test(inventory.getStack(2))
+                && items.get(3).test(inventory.getStack(3));
     }
 
     @Override
-    public ItemStack craft(CraftingInventory inventory, DynamicRegistryManager registryManager) {
+    public ItemStack craft(Inventory inventory, DynamicRegistryManager registryManager) {
         return output.copy();
     }
 
@@ -57,7 +65,7 @@ public class FletchingRecipe implements Recipe<CraftingInventory> {
 
     @Override
     public RecipeSerializer<?> getSerializer() {
-        return null;
+        return Serializer.INSTANCE;
     }
 
     @Override
@@ -82,37 +90,21 @@ public class FletchingRecipe implements Recipe<CraftingInventory> {
         }
         @Override
         public FletchingRecipe read(Identifier id, JsonObject json) {
-            JsonArray ingredients = JsonHelper.getArray(json,"ingredients");
-            DefaultedList<Ingredient> inputs = DefaultedList.ofSize(2,Ingredient.EMPTY);
-            for (int i = 0; i < 2; i++) {
-                inputs.set(i,Ingredient.fromJson(ingredients.get(i)));
+            FletchingRecipeJsonObject recipeObject = new Gson()
+                    .fromJson(json, FletchingRecipeJsonObject.class)
+                    .build();
+            DefaultedList<Ingredient> inputs = DefaultedList.ofSize(4,Ingredient.EMPTY);
+            for (int i = 0; i < recipeObject.ingredientList.size(); i++) {
+                inputs.set(i,Ingredient.fromJson(recipeObject.ingredientList.get(i)));
             }
-            JsonObject outputData = JsonHelper.getObject(json,"output");
-            ItemStack output = ShapedRecipe.outputFromJson(
-                    JsonHelper.getObject(outputData,"result")
-            );
-            if (outputData.has("nbt")) {
-                try {
-                    NbtCompound data = new StringNbtReader(
-                            new StringReader(
-                                    JsonHelper.getObject(outputData, "nbt").toString()
-                            )
-                    ).parseCompound();
-                    for (String key : data.getKeys()) {
-                        output.setSubNbt(key, data.get(key));
-                    }
-                } catch (CommandSyntaxException e) {
-                    System.err.println(e.getMessage());
-                    e.printStackTrace(System.err);
-                }
-            }
-            return new FletchingRecipe(id,output,inputs);
+            ItemStack output = ShapedRecipe.outputFromJson(recipeObject.result);
+            return new FletchingRecipe(id, output, inputs);
         }
 
         @Override
         public FletchingRecipe read(Identifier id, PacketByteBuf buf) {
             DefaultedList<Ingredient> inputs = DefaultedList.ofSize(buf.readInt(),Ingredient.EMPTY);
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 4; i++) {
                 inputs.set(i,Ingredient.fromPacket(buf));
             }
             ItemStack output = buf.readItemStack();

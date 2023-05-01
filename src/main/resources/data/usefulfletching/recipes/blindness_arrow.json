@@ -1,0 +1,32 @@
+{
+  "type": "usefulfletching:fletching",
+  "ingredients": {
+    "pattern": [
+      "A","A","A","I"
+    ],
+    "key": {
+      "A": {
+        "item": "minecraft:arrow"
+      },
+      "I": {
+        "item": "minecraft:ink_sac"
+      }
+    }
+  },
+  "result": {
+    "item": "minecraft:tipped_arrow",
+    "count": 3,
+    "data": {
+      "CustomPotionColor": 2698570,
+      "CustomPotionEffects": [
+        {
+          "Id": 15,
+          "Duration": 100
+        }
+      ],
+      "display": {
+        "Name": "[{\"translate\": \"usefulfletching.blindness_arrow\",\"italic\": false}]"
+      }
+    }
+  }
+}

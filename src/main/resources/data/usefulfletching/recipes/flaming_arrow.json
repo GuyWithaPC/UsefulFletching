@@ -2,14 +2,14 @@
   "type": "usefulfletching:fletching",
   "ingredients": {
     "pattern": [
-      "A","A","A","E"
+      "A","A","A","B"
     ],
     "key": {
       "A": {
         "item": "minecraft:arrow"
       },
-      "E": {
-        "item": "minecraft:spider_eye"
+      "B": {
+        "item": "minecraft:blaze_powder"
       }
     }
   },
@@ -17,7 +17,11 @@
     "item": "minecraft:tipped_arrow",
     "count": 3,
     "data": {
-      "Potion": "minecraft:poison"
+      "CustomPotionColor": 16760072,
+      "Flaming": true,
+      "display": {
+        "Name": "[{\"translate\": \"usefulfletching.flaming_arrow\",\"italic\": false}]"
+      }
     }
   }
 }
